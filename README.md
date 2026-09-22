@@ -1,151 +1,82 @@
-# UDP Hole Punching – Chat P2P por Terminal
+# UDP Hole Punching Demo
 
-Este proyecto implementa un **chat P2P por UDP** entre dos clientes ubicados detrás de **NATs diferentes**, utilizando la técnica de **UDP Hole Punching** y un **servidor de señalización (tipo STUN simplificado)**.
+A simple Python implementation of UDP hole punching using a signaling server.  
+The project allows two clients to discover each other's UDP endpoint and attempt direct peer-to-peer communication through NAT.
 
-El servidor solo se utiliza para el **intercambio inicial de direcciones IP y puertos**; una vez establecida la comunicación, los clientes se comunican **directamente entre sí**.
+## Files
 
----
+- `udp_hole_punching.py` — Client application.  
+  Connects to the signaling server, receives the peer's IP and port, sends UDP packets to open NAT mappings, and then allows chatting with the peer.
 
-## 📐 Arquitectura
+- `udp_hole_punching_STUN.py` — Signaling server.  
+  Listens on UDP port `12345`, records connected clients, pairs the first two clients, and exchanges their `IP:PORT` information.
 
-Cliente A (NAT)  
-↕  
-Servidor de señalización (IP pública)  
-↕  
-Cliente B (NAT)
+> **Note:** Despite the name, `udp_hole_punching_STUN.py` does **not** implement STUN. It is only a basic signaling server.
 
-Una vez completada la señalización:
-
-Cliente A ↔ Cliente B (UDP P2P)
-
----
-
-## 📦 Componentes
-
-### 1. Servidor de señalización
-- Escucha conexiones UDP.
-- Detecta automáticamente la IP y puerto público de cada cliente.
-- Intercambia la información de conexión entre los clientes.
-- **No participa en la comunicación final.**
-
-### 2. Cliente UDP P2P
-- Se conecta al servidor de señalización.
-- Obtiene la IP y puerto del peer remoto.
-- Envía paquetes UDP repetidos para perforar el NAT.
-- Establece un chat por terminal usando UDP directo.
-
----
-
-## ⚙️ Requisitos
+## Requirements
 
 - Python 3.x
-- Acceso a red (local o Internet)
-- Un servidor accesible públicamente para la señalización
-- Dos clientes detrás de NAT (idealmente NATs distintos)
+- Network connectivity between the clients and the signaling server
+- For real NAT traversal:
+  - The signaling server should be reachable from both clients (public IP or port-forwarded).
+  - Both clients should be behind NATs or on different networks.
 
----
+## Configuration
 
-## 🚀 Uso
-
-### 1️⃣ Ejecutar el servidor de señalización
-
-En una máquina con IP accesible (preferiblemente pública):
-
-```bash
-python servidor.py
-```
-
-Salida esperada:
-```
-Servidor de señalizacion escuchando en puerto 12345...
-```
-
----
-
-### 2️⃣ Configurar el cliente
-
-Editar en el archivo del cliente:
+In `udp_hole_punching.py`:
 
 ```python
-servidor_ip = "IP_DEL_SERVIDOR"
-servidor_puerto = 12345
-mi_puerto = 33342
+servidor_ip = "192.168.100.185"  # Signaling server IP
+servidor_puerto = 12345          # Signaling server port
+mi_puerto = int(33342)           # Local UDP port to bind
 ```
 
-> Cada cliente debe usar **un puerto local distinto**.
+In `udp_hole_punching_STUN.py`:
 
----
+```python
+servidor_puerto = 12345  # Signaling server listening port
+```
 
-### 3️⃣ Ejecutar los clientes
+## Usage
 
-En cada cliente:
+1. Start the signaling server on a machine reachable by both clients:
 
 ```bash
-python cliente.py
+python3 udp_hole_punching_STUN.py
 ```
 
-Flujo esperado:
-1. El cliente envía un `PING` al servidor.
-2. El servidor responde con la IP:PUERTO del otro cliente.
-3. Ambos clientes envían paquetes UDP entre sí.
-4. Se abre el mapeo del NAT.
-5. El chat queda listo.
+2. Start the client on two different machines, or in two separate terminals for testing:
 
----
+```bash
+python3 udp_hole_punching.py
+```
 
-## 💬 Funcionamiento del Chat
+3. Each client sends a `PING` packet to the signaling server.  
+   Once two clients are registered, the server sends each client the other client's `IP:PORT`.
 
-- Cada cliente puede escribir mensajes por terminal.
-- Los mensajes se envían directamente al peer por UDP.
-- No hay cifrado (ideal para análisis y aprendizaje).
-- No hay control de sesión ni autenticación.
+4. Each client sends a series of `PING` packets to the peer to create and maintain NAT mappings.
 
----
+5. After the hole-punching phase, type a message in the client terminal and press Enter.  
+   Messages are sent directly to the peer over UDP.
 
-## 🧠 Conceptos Aplicados
+## How It Works
 
-- UDP Hole Punching
-- NAT Traversal
-- Comunicación P2P
-- Sockets UDP
-- Servidores de señalización
-- Multithreading básico en Python
+1. The signaling server records the source `(IP, port)` of every UDP packet it receives.
+2. When at least two clients are known, it sends the first client's endpoint to the second client and vice versa.
+3. Each client then sends UDP packets to the peer's endpoint.
+4. If both NATs allow outbound UDP and keep the mappings open, the packets may reach each other.
+5. A background thread on each client listens for incoming UDP messages.
 
----
+## Limitations
 
-## ⚠️ Limitaciones
+- Supports only two clients at a time (pairs the first two endpoints).
+- No authentication, encryption, or reliability.
+- Hardcoded configuration; no command-line arguments.
+- No STUN implementation or NAT type detection.
+- May not work with symmetric NATs or restrictive firewalls.
+- The server does not remove disconnected clients.
 
-- No funciona con NATs simétricos estrictos.
-- No maneja más de 2 clientes.
-- No implementa reconexión automática.
-- No incluye seguridad ni cifrado.
-- El servidor mantiene clientes en memoria sin limpieza.
+## Disclaimer
 
----
-
-## 🎯 Uso Educativo
-
-Este proyecto está diseñado para:
-- Laboratorios de redes
-- Clases de ciberseguridad
-- Comprender NAT traversal
-- Demostraciones prácticas de P2P
-
-No está pensado para uso en producción.
-
----
-
-## 📌 Posibles Mejoras
-
-- Soporte para múltiples pares de clientes
-- Timeouts y limpieza de clientes
-- Cifrado de mensajes
-- Detección de tipo de NAT
-- Interfaz gráfica
-- Uso de protocolos STUN reales
-
----
-
-## 📜 Licencia
-
-Proyecto educativo. Uso libre para aprendizaje y enseñanza.
+This project is for educational purposes only.  
+Use it only on networks you own or have permission to test.
